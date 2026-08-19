@@ -52,11 +52,7 @@ jobs:
       - name: Compile Firmware
         run: |
           mkdir -p build
-          arduino-cli compile \
-            --fqbn "$BOARD_FQBN" \
-            --export-binaries \
-            --build-path "./build" \
-            .
+          arduino-cli compile --fqbn "$BOARD_FQBN" --export-binaries --build-path "./build" .
 
       - name: Upload a Build Artifact
         uses: actions/upload-artifact@v7.0.1
@@ -83,20 +79,20 @@ jobs:
             **Commit hash:** `${{ github.sha }}`
 
             ### 📂 Included files:
-            - `MatterClimate.ino.bin` - Main firmware
-            - `MatterClimate.ino.bootloader.bin` - Bootloader
-            - `MatterClimate.ino.merged.bin` - Complete firmware (bootloader + app) - **RECOMMENDED**
-            - `MatterClimate.ino.partitions.bin` - Partition table
+            - `${{ github.event.repository.name }}.ino.bin` - Main firmware
+            - `${{ github.event.repository.name }}.ino.bootloader.bin` - Bootloader
+            - `${{ github.event.repository.name }}.ino.merged.bin` - Complete firmware (bootloader + app) - **RECOMMENDED**
+            - `${{ github.event.repository.name }}.ino.partitions.bin` - Partition table
             - `boot_app0.bin` - Bootloader app
             
             ### ⚠️ How to flash:
             ```bash
             esptool --port /dev/ttyUSB0 erase-flash
-            esptool --port /dev/ttyUSB0 write-flash 0x0 MatterClimate.ino.merged.bin
+            esptool --port /dev/ttyUSB0 write-flash 0x0 ${{ github.event.repository.name }}.ino.merged.bin
           files: build/**/*.bin
           draft: false
           prerelease: false
-          overwrite: true
+          overwrite_files: true
           fail_on_unmatched_files: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
