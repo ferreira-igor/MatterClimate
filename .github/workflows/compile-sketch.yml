@@ -7,7 +7,7 @@ on:
     paths:
       - '*.ino'
       - '.github/workflows/compile-sketch.yml'
-  
+
   pull_request:
     branches:
       - main
@@ -61,34 +61,30 @@ jobs:
           path: build/*.bin
           if-no-files-found: error
 
-      - name: Generate Release Tag
-        id: tag
-        run: |
-          echo "tag_name=$(date -u +'%Y%m%d_%H%M')" >> $GITHUB_OUTPUT
-
       - name: GH Release
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v3.0.2
         with:
-          tag_name: ${{ steps.tag.outputs.tag_name }}
-          name: "${{ steps.tag.outputs.tag_name }}"
+          tag_name: firmware
+          name: "Latest Firmware"
           body: |
-            ## 📦 Firmware for WeAct Studio ESP32C3
-            
+            **FQBN:** ${{ env.BOARD_FQBN }}
+
             **Compiled on:** ${{ github.event.head_commit.timestamp }}
             **Commit hash:** `${{ github.sha }}`
 
-            ### 📂 Included files:
+            ### Included files:
             - `${{ github.event.repository.name }}.ino.bin` - Main firmware
             - `${{ github.event.repository.name }}.ino.bootloader.bin` - Bootloader
             - `${{ github.event.repository.name }}.ino.merged.bin` - Complete firmware (bootloader + app) - **RECOMMENDED**
             - `${{ github.event.repository.name }}.ino.partitions.bin` - Partition table
             - `boot_app0.bin` - Bootloader app
             
-            ### ⚠️ How to flash:
+            ### How to flash:
             ```bash
-            esptool --port /dev/ttyUSB0 erase-flash
-            esptool --port /dev/ttyUSB0 write-flash 0x0 ${{ github.event.repository.name }}.ino.merged.bin
+            esptool.py --port /dev/ttyUSB0 erase-flash
+            esptool.py --port /dev/ttyUSB0 write-flash 0x0 ${{ github.event.repository.name }}.ino.merged.bin
+            ```
           files: build/*.bin
           draft: false
           prerelease: false

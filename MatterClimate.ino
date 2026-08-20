@@ -135,14 +135,14 @@ const float humidity_diff = 2.0f;
 // Timing Constants
 //=============================================================================
 
-/** @brief Interval between sensor readings (1 second) */
+/** @brief Interval between sensor readings */
 const uint32_t sensors_read_interval = 1000;
 
-/** @brief Interval for Matter connection checks (15 seconds) */
+/** @brief Interval for Matter connection checks */
 const uint32_t matter_check_interval = 15000;
 
-/** @brief Maximum time without Matter connection before reboot (60 seconds) */
-const uint32_t matter_timeout = 60000;
+/** @brief Maximum time without Matter connection before reboot */
+const uint32_t matter_timeout = 180000;
 
 /**
  * @brief Counter for consecutive Matter disconnections
@@ -276,7 +276,7 @@ void updateMatter() {
  * Monitors the Matter connection state and implements a recovery strategy:
  * 1. Updates LED status based on commissioning state (Active LOW)
  * 2. Tracks disconnection duration
- * 3. Automatically decommissions and reboots after 60 seconds of disconnection
+ * 3. Automatically decommissions and reboots after timeout
  * 
  * LED Behavior (Active LOW - LED ON when pin is LOW):
  * - LED ON (LOW):  Device is NOT commissioned - ready for commissioning
@@ -291,17 +291,17 @@ void updateMatter() {
  * - If disconnection persists for matter_timeout (60s), decommission and reboot
  * - This forces the device to be re-added to the Matter network
  * 
- * @note Check interval is defined by matter_check_interval (15 seconds)
+ * @note Check interval is defined by matter_check_interval
  * @note matter_disconnect_counter increments each check cycle when disconnected
  * @note Counter resets to 0 when connection is restored
  */
 void checkMatter() {
-  
+
   // Update LED based on commission status (Active LOW)
   // LED ON (LOW)  = Not commissioned - ready for setup
   // LED OFF (HIGH) = Commissioned - operating normally
   if (!Matter.isDeviceCommissioned()) {
-    digitalWrite(pin_led, LOW);   // LED ON - waiting for commissioning
+    digitalWrite(pin_led, LOW);  // LED ON - waiting for commissioning
   } else {
     digitalWrite(pin_led, HIGH);  // LED OFF - commissioned and running
   }
@@ -311,18 +311,18 @@ void checkMatter() {
   if (Matter.isDeviceCommissioned() != Matter.isDeviceConnected()) {
     matter_disconnect_counter++;
     Serial.println("Device disconnected!");
-    
+
     // If disconnected for longer than matter_timeout
     if (matter_disconnect_counter >= (matter_timeout / matter_check_interval)) {
-      Serial.println("Device disconnected for 1 minute - Decommissioning and rebooting...");
-      
+      Serial.println("The connection was lost! Decommissioning and rebooting...");
+
       // Decommission the device (removes it from the Matter network)
       Matter.decommission();
       matter_disconnect_counter = 0;
-      
+
       // Allow time for decommissioning to complete
       delay(1000);
-      
+
       // Reboot to start fresh
       ESP.restart();
     }
@@ -384,7 +384,7 @@ void setup() {
   //-----------------------------------------------------------------------
   // 1. Hardware Initialization
   //-----------------------------------------------------------------------
-  
+
   pinMode(pin_led, OUTPUT);
 
   // LED ON during initialization (Active LOW)
@@ -398,17 +398,18 @@ void setup() {
   //-----------------------------------------------------------------------
   // 2. SHT30 Sensor Initialization
   //-----------------------------------------------------------------------
-  
+
   Wire.begin(pin_i2c_sda, pin_i2c_scl);
 
-  if (!sht31.begin(sht30_addr)) {
+  while (!sht31.begin(sht30_addr)) {
     Serial.println("Error initializing SHT30 sensor. Check your wiring!");
+    delay(1000);
   }
 
   //-----------------------------------------------------------------------
   // 3. WiFi Configuration (Conditional based on commissioning method)
   //-----------------------------------------------------------------------
-  
+
   /**
    * WiFi configuration method is selected at compile time:
    * 
@@ -441,7 +442,7 @@ void setup() {
   //-----------------------------------------------------------------------
   // 4. Matter Endpoint Initialization
   //-----------------------------------------------------------------------
-  
+
   if (!temperatureSensor.begin()) {
     Serial.println("Error initializing temperature endpoint!");
   }
@@ -453,13 +454,13 @@ void setup() {
   //-----------------------------------------------------------------------
   // 5. Matter Protocol Initialization
   //-----------------------------------------------------------------------
-  
+
   Matter.begin();
 
   //-----------------------------------------------------------------------
   // 6. Commissioning Information
   //-----------------------------------------------------------------------
-  
+
   if (!Matter.isDeviceCommissioned()) {
     Serial.println("Matter Node is not commissioned yet.");
     Serial.println("Initiate the device discovery in your Matter environment.");
@@ -479,11 +480,11 @@ void setup() {
  * @brief Arduino main loop
  * 
  * Manages periodic tasks using non-blocking timers:
- * 1. Sensor Reading (every 1 second):
+ * 1. Sensor Reading:
  *    - Reads temperature and humidity from SHT30
  *    - Updates Matter endpoints if changes exceed thresholds
  * 
- * 2. Matter Connection Check (every 15 seconds):
+ * 2. Matter Connection Check:
  *    - Monitors commission and connection status
  *    - Handles disconnection recovery
  *    - Updates LED status (Active LOW)
@@ -495,14 +496,14 @@ void loop() {
 
   uint32_t current_time = millis();
 
-  // Task 1: Read sensors every second
+  // Task 1: Read sensors
   if (current_time - last_sensors_read >= sensors_read_interval) {
     last_sensors_read = current_time;
     readSensors();
     updateMatter();
   }
 
-  // Task 2: Check Matter connection every 15 seconds
+  // Task 2: Check Matter connection
   if (current_time - last_matter_check >= matter_check_interval) {
     last_matter_check = current_time;
     checkMatter();
